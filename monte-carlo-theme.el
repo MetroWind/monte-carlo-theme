@@ -82,8 +82,52 @@ https://darksair.org/wiki/color-science/main.html"
 (defun hlc2srgb-hex (hlc)
   (srgb2hex (hlc2srgb hlc)))
 
+;; Lightness ∈ [0, 1], saturation ∈ [0, 1]
 (defun random-color (lightness saturation)
   (hlc2srgb-hex (vector (/ (random 360) (* 2.0 3.14159)) lightness saturation)))
+
+(defun random-float (min max)
+  (let ((min000 (* min 1000))
+        (max000 (* max 1000)))
+    (* (+ (random (- max000 min000)) min000) 0.001)))
+
+(cl-defun make-color-gen-options (&key contrast saturation)
+  (make-hash-table :contrast contrast
+                   :saturation saturation))
+
+(defun make-color (u v w)
+  (vector u v w))
+
+(defun make-color-set (bg fg color1 color2 color3 color4 color5)
+  (vector (bg fg color1 color2 color3 color4 color5)))
+
+(defun bg (color-set)
+  (elt color-set 0))
+
+(defun fg (color-set)
+  (elt color-set 1))
+
+(defun color1 (color-set)
+  (elt color-set 2))
+(defun color2 (color-set)
+  (elt color-set 3))
+(defun color3 (color-set)
+  (elt color-set 4))
+(defun color4 (color-set)
+  (elt color-set 5))
+(defun color5 (color-set)
+  (elt color-set 6))
+(defun color6 (color-set)
+  (elt color-set 7))
+
+(defun gen-color-set (options)
+  (let* ((2pi (* 2.0 3.14159265))
+         (contrast (gethash options 'contrast))
+         (sat (gethash options 'saturation))
+         (bg (make-color (random-float 0 2pi)
+                         (- 50.0 (* 50.0 contrast))
+                         (* sat 128.0)))
+         (fg (make-color
 
 ;; Colors
 (let*
