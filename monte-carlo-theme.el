@@ -1,6 +1,6 @@
 ;;; monte-carlo-theme.el --- A theme with random colors
 
-;; Copyright (C) 2021 MetroWind.
+;; Copyright (C) 2023 MetroWind.
 
 ;; This program is free software. It comes without any warranty, to
 ;; the extent permitted by applicable law. You can redistribute it
@@ -9,7 +9,7 @@
 ;; http://www.wtfpl.net/ for more details.
 
 ;; Author: MetroWind <chris.corsair@gmail.com>
-;; URL: https://github.com/MetroWind/notink-theme
+;; URL: https://github.com/MetroWind/monte-carlo-theme
 ;; Keywords: lisp
 ;; Version: 1.0
 ;; Package-Requires: ((emacs "24"))
@@ -23,224 +23,330 @@
 
 (deftheme monte-carlo "A theme with random colors")
 
+(defun mcth--lab2xyz (lab-color)
+  "Convert `lab-color` (vector of floats) to XYZ color. l ∈ [0,
+100], a,b ∈ [-128, 127]. Reference:
+http://www.brucelindbloom.com/index.html?Math.html"
+  (let* ((epsilon 0.008856)
+         (kappa 903.3)
+         (l (elt lab-color 0))
+         (a (elt lab-color 1))
+         (b (elt lab-color 2))
+         (fy (/ (+ l 16.0) 116.0))
+         (fx (+ (/ a 500.0) fy))
+         (fz (- fy (/ b 200.0)))
+         (fx3 (expt fx 3.0))
+         (fz3 (expt fz 3.0))
+         (xr (if (> fx3 epsilon) fx3 (/ (- (* 116.0 fx) 16.0) kappa)))
+         (yr (if (> l (* kappa epsilon)) (expt fy 3.0) (/ l kappa)))
+         (zr (if (> fz3 epsilon) fz3 (/ (- (* 116.0 fz) 16.0) kappa))))
+    (vector (* xr 0.95047) yr (* zr 1.08883))))
+
+(defun mcth--hlc2lab (hlc-color)
+  "Convert CIEHLC color `hlc-color` to CIELAB. h ∈ [0, 2π), l ∈ [0,
+100], c ∈ [0, 128]. Reference:
+https://en.wikipedia.org/wiki/CIELAB_color_space#CIEHLC_cylindrical_model"
+  (let ((h (elt hlc-color 0))
+        (l (elt hlc-color 1))
+        (c (elt hlc-color 2)))
+    (vector l (* c (cos h)) (* c (sin h)))))
+
+(defun mcth--xyz2srgb (xyz)
+  "Convert CIEXYZ color to sRGB. Result is from 0 to 1. Reference:
+https://darksair.org/wiki/color-science/main.html"
+  (defun not-gamma-map (x)
+    (if (> x 0.0031308)
+        (- (* 1.055 (expt x (/ 1 2.4))) 0.055)
+      (* 12.92 x)))
+  (let* ((x (elt xyz 0))
+         (y (elt xyz 1))
+         (z (elt xyz 2))
+         (r (+ (* 3.2406 x) (* -1.5372 y) (* -0.4986 z)))
+         (g (+ (* -0.9689 x) (* 1.8758 y) (* 0.0415 z)))
+         (b (+ (* 0.0557 x) (* -0.2040 y) (* 1.0570 z))))
+    (vector (not-gamma-map r) (not-gamma-map g) (not-gamma-map b))))
+
+(defun mcth--hlc2srgb (hlc)
+  (mcth--xyz2srgb (mcth--lab2xyz (mcth--hlc2lab hlc))))
+
+(defun mcth--srgb2hex (srgb)
+  (defun clamp (x min max)
+    (cond ((< x min) min)
+          ((> x max) max)
+          (t x)))
+  (let ((r (clamp (* (elt srgb 0) 255) 0 255))
+        (g (clamp (* (elt srgb 1) 255) 0 255))
+        (b (clamp (* (elt srgb 2) 255) 0 255)))
+    (format "#%02x%02x%02x" r g b)))
+
+(defun mcth--hlc2srgb-hex (hlc)
+  (mcth--srgb2hex (mcth--hlc2srgb hlc)))
+
+(defun mcth--random-float (min max)
+  (let ((min000 (floor (* min 1000.0)))
+        (max000 (floor (* max 1000.0))))
+    (* (+ (random (- max000 min000)) min000) 0.001)))
+
+(defun mcth--random-from-list (lst)
+  (nth (random (length lst)) lst))
+
+(cl-defun mcth--make-color-gen-options
+    (&key bg-fg-contrast bg-fg-saturation color-contrast color-saturation
+          style scheme)
+  (let ((result (make-hash-table :size 4)))
+    (puthash 'bg-fg-contrast bg-fg-contrast result)
+    (puthash 'bg-fg-saturation bg-fg-saturation result)
+    (puthash 'color-contrast color-contrast result)
+    (puthash 'color-saturation color-saturation result)
+    (puthash 'style style result)
+    (puthash 'scheme scheme result)
+    result))
+
+(defun mcth--make-color (h l c)
+  (vector h l c))
+
+(defun mcth--h (color) (elt color 0))
+(defun mcth--l (color) (elt color 1))
+(defun mcth--c (color) (elt color 2))
+
+(defun mcth--make-color-set (bg fg void dark middle light bright color1 color2 color3 color4 color5)
+  (vector bg fg void dark middle light bright color1 color2 color3 color4 color5))
+
+(defun mcth--bg (color-set)
+  (elt color-set 0))
+(defun mcth--fg (color-set)
+  (elt color-set 1))
+(defun mcth--void (color-set)
+  (elt color-set 2))
+(defun mcth--dark (color-set)
+  (elt color-set 3))
+(defun mcth--middle (color-set)
+  (elt color-set 4))
+(defun mcth--light (color-set)
+  (elt color-set 5))
+(defun mcth--bright (color-set)
+  (elt color-set 6))
+
+(defun mcth--color1 (color-set)
+  (elt color-set 7))
+(defun mcth--color2 (color-set)
+  (elt color-set 8))
+(defun mcth--color3 (color-set)
+  (elt color-set 9))
+(defun mcth--color4 (color-set)
+  (elt color-set 10))
+(defun mcth--color5 (color-set)
+  (elt color-set 11))
+
+(defun mcth--color-lighter (color delta-l)
+  (mcth--make-color (mcth--h color) (+ (mcth--l color) delta-l) (mcth--c color)))
+
+(defun mcth--color-darker (color delta-l)
+  (mcth--make-color (mcth--h color) (- (mcth--l color) delta-l) (mcth--c color)))
+
+(defun mcth--ring-wrap (ring-min ring-max x)
+  (let* ((winding-number (ffloor (/ (- x ring-min) (- ring-max ring-min))))
+         (wrapped (- x (* winding-number (- ring-max ring-min)))))
+    (message "Wrapping %f within [%f, %f] to %f. (winding number is %f.)" x ring-min ring-max wrapped winding-number)
+    wrapped))
+
+(defun mcth--divide-ring-roughly (ring-min ring-max divide-count perturb)
+  (defun divide-ring-inner (ring-min ring-max perturb exact-size exact-cut
+                                     cut-left)
+    (if (= cut-left 0)
+        nil
+      (cons (mcth--ring-wrap ring-min ring-max
+                             (mcth--random-float (- exact-cut perturb)
+                                                 (+ perturb exact-cut)))
+            (divide-ring-inner ring-min ring-max perturb exact-size
+                               (+ exact-cut exact-size) (- cut-left 1)))))
+  (let ((first-cut (mcth--random-float ring-min ring-max))
+        (exact-size (/ (- ring-max ring-min) (float divide-count))))
+    (message "Cutting at %f..." first-cut)
+    (cons first-cut
+          (divide-ring-inner ring-min ring-max perturb exact-size
+                             (+ first-cut exact-size) (- divide-count 1)))))
+
+(defun mcth--gen-color-set (options)
+  (defun gen-accent-colors (options)
+    (let* ((2pi (* 2.0 3.14159265))
+           (contrast (gethash 'color-contrast options))
+           (style (gethash 'style options))
+           (l (cond ((eq style 'dark) (+ 50.0 (* 50.0 contrast)))
+                    ((eq style 'light) (- 50.0 (* 50.0 contrast)))
+                    (t 0)))
+           (sat (gethash 'color-saturation options))
+           (hue-range (cond ((eq (gethash 'scheme options) 'penta-half) (* 2pi 0.5))
+                            (t 2pi)))
+           (hue-start (mcth--random-float 0 2pi))
+           (hues (mcth--divide-ring-roughly hue-start (+ hue-start hue-range) 5 0.15))
+           (hues-normalized (mapcar (lambda (h) (mcth--ring-wrap 0 2pi h)) hues)))
+      (message "Hue is from %f to %f." hue-start (+ hue-start hue-range))
+      (message "Hues are %s." hues-normalized)
+      (mapcar (lambda (hue) (vector hue l (* sat 128.0)))
+              hues-normalized)))
+
+  (let* ((2pi (* 2.0 3.14159265))
+         (contrast (gethash 'bg-fg-contrast options))
+         (style (gethash 'style options))
+         (bg-lightness (cond ((eq style 'dark) (- 50.0 (* 50.0 contrast)))
+                             ((eq style 'light) (+ 50.0 (* 50.0 contrast)))
+                             (t 0)))
+         (fg-lightness (cond ((eq style 'dark) (+ 50.0 (* 50.0 contrast)))
+                             ((eq style 'light) (- 50.0 (* 50.0 contrast)))
+                             (t 0)))
+         (sat (gethash 'bg-fg-saturation options))
+         (bg (mcth--make-color (mcth--random-float 0 2pi)
+                               bg-lightness
+                               (* sat 128.0)))
+         (fg (mcth--make-color (mcth--random-float 0 2pi)
+                               fg-lightness
+                               (* sat 128.0)))
+         (void (cond ((eq style 'dark) (mcth--color-darker bg 15))
+                     ((eq style 'light) (mcth--color-lighter bg 15))
+                     (t bg)))
+         (dark (cond ((eq style 'dark) (mcth--color-lighter bg 15))
+                     ((eq style 'light) (mcth--color-darker bg 15))
+                     (t bg)))
+         (middle (cond ((eq style 'dark) (mcth--color-lighter bg 40))
+                       ((eq style 'light) (mcth--color-darker bg 40))
+                       (t bg)))
+         (light (cond ((eq style 'dark) (mcth--color-darker fg 15))
+                      ((eq style 'light) (mcth--color-lighter fg 15))
+                      (t fg)))
+         (bright (cond ((eq style 'dark) (mcth--color-lighter fg 15))
+                       ((eq style 'light) (mcth--color-darker fg 15))
+                       (t fg)))
+         (colors (gen-accent-colors options)))
+    (mcth--make-color-set bg fg void dark middle light bright (nth 0 colors) (nth 1 colors) (nth 2 colors) (nth 3 colors)
+                          (nth 4 colors))))
+
 (defun monte-carlo-theme-create-color-sheet ()
   (interactive)
   (defun create-color-sheet (color-set)
-    (set-buffer (generate-new-buffer "*Color Sheet*"))
-    (let ((color-hex (hlc2srgb-hex (bg color-set))))
+    (set-buffer (get-buffer-create "*Color Sheet*"))
+    (read-only-mode 0)
+    (erase-buffer)
+    (let ((color-hex (mcth--hlc2srgb-hex (mcth--bg color-set))))
       (insert "bg                  " color-hex "\n")
       (overlay-put (make-overlay 12 20) 'face
                    (cons 'background-color color-hex)))
-    (let ((color-hex (hlc2srgb-hex (fg color-set))))
+    (let ((color-hex (mcth--hlc2srgb-hex (mcth--fg color-set))))
       (insert "fg                  " color-hex "\n")
       (overlay-put (make-overlay 40 48) 'face
                    (cons 'background-color color-hex)))
-    (let ((color-hex (hlc2srgb-hex (color1 color-set))))
+    (let ((color-hex (mcth--hlc2srgb-hex (mcth--color1 color-set))))
       (insert "color1              " color-hex "\n")
       (overlay-put (make-overlay 68 76) 'face
                    (cons 'background-color color-hex)))
-    (let ((color-hex (hlc2srgb-hex (color2 color-set))))
+    (let ((color-hex (mcth--hlc2srgb-hex (mcth--color2 color-set))))
       (insert "color2              " color-hex "\n")
       (overlay-put (make-overlay 96 104) 'face
                    (cons 'background-color color-hex)))
-    (let ((color-hex (hlc2srgb-hex (color3 color-set))))
+    (let ((color-hex (mcth--hlc2srgb-hex (mcth--color3 color-set))))
       (insert "color3              " color-hex "\n")
       (overlay-put (make-overlay 124 132) 'face
                    (cons 'background-color color-hex)))
-    (let ((color-hex (hlc2srgb-hex (color4 color-set))))
+    (let ((color-hex (mcth--hlc2srgb-hex (mcth--color4 color-set))))
       (insert "color4              " color-hex "\n")
       (overlay-put (make-overlay 152 160) 'face
                    (cons 'background-color color-hex)))
-    (let ((color-hex (hlc2srgb-hex (color5 color-set))))
+    (let ((color-hex (mcth--hlc2srgb-hex (mcth--color5 color-set))))
       (insert "color5              " color-hex "\n")
       (overlay-put (make-overlay 180 188) 'face
                    (cons 'background-color color-hex)))
-    (read-only-mode))
-  (create-color-sheet monte-carlo-theme-color-set))
+    (read-only-mode 1))
+  (create-color-sheet monte-carlo-theme-color-set)
+  (switch-to-buffer "*Color Sheet*"))
+
+(defun monte-carlo-theme-create-color-chart ()
+  (interactive)
+  (defun draw-color-plane (size lightness)
+    (let* ((resolution 32)
+           (cell-size (/ size (float resolution))))
+      (dotimes (x resolution)
+        (dotimes (y resolution)
+          (let ((a (* (/ 256.0 (float resolution)) (- x (/ resolution 2))))
+                (b (* (/ 256.0 (float resolution)) (- y (/ resolution 2)))))
+            (insert (format "<rect x=\"%f\" y=\"%f\" width=\"%f\" height=\"%f\" stroke=\"none\" fill=\"%s\" />\n"
+                            (* x cell-size) (* y cell-size) cell-size cell-size
+                            (mcth--srgb2hex (mcth--xyz2srgb (mcth--lab2xyz (vector lightness a b)))))))))))
+
+  (defun draw-color-sample (size color-hlc)
+    (let* ((resolution 32)
+           (lab (mcth--hlc2lab color-hlc))
+           (x (* (+ (/ (elt lab 1) 256.0) 0.5) (float size)))
+           (y (* (+ (/ (elt lab 2) 256.0) 0.5) (float size))))
+      (insert (format "<circle cx=\"%f\" cy=\"%f\" r=\"%f\" stroke=\"white\" fill=\"%s\" stroke-width=\"2\"/>\n"
+                      x y (/ (float size) 30) (mcth--hlc2srgb-hex color-hlc)))))
+
+  (set-buffer (get-buffer-create "*Color Chart*"))
+  (fundamental-mode)
+  (read-only-mode 0)
+  (erase-buffer)
+  (insert "<?xml version=\"1.0\" standalone=\"no\"?>\n")
+  (insert "<svg width=\"256\" height=\"256\" version=\"1.1\" xmlns=\"http://www.w3.org/2000/svg\">\n")
+  (draw-color-plane 256 (mcth--l (mcth--color1 monte-carlo-theme-color-set)))
+  (draw-color-sample 256 (mcth--color1 monte-carlo-theme-color-set))
+  (draw-color-sample 256 (mcth--color2 monte-carlo-theme-color-set))
+  (draw-color-sample 256 (mcth--color3 monte-carlo-theme-color-set))
+  (draw-color-sample 256 (mcth--color4 monte-carlo-theme-color-set))
+  (draw-color-sample 256 (mcth--color5 monte-carlo-theme-color-set))
+  (insert "</svg>")
+  (image-mode)
+  (read-only-mode 1)
+  (switch-to-buffer "*Color Chart*"))
+
+(defgroup monte-carlo-theme nil "Setting for the Monte Carlo theme")
+(defcustom monte-carlo-theme-style 'random
+  "Will the theme have a 'light or 'dark background? If 'random, randomly choose between 'light and 'dark."
+  :type '(symbol)
+  :options '(random light dark))
+(defcustom monte-carlo-theme-contrast 0.65
+  "The contrast between backgroun and foreground (from 0 to 1)."
+  :type '(float))
+(defcustom monte-carlo-theme-saturation 0.04
+  "The saturation of background and foreground (from 0 to 1). Usually this is a small number (< 0.1)."
+  :type '(float))
+(defcustom monte-carlo-theme-color-contrast 0.5
+  "The contrast of the between the accent colors to middle grey (from 0 to 1)."
+  :type '(float))
+(defcustom monte-carlo-theme-color-saturation 0.3
+  "The saturation of the accent colors (from 0 to 1)."
+  :type '(float))
+(defcustom monte-carlo-theme-scheme 'random
+  "The method of choosing the accent colors. Either 'penta, 'penta-half, or 'random."
+  :type '(symbol)
+  :options '(random penta penta-half))
 
 ;; Colors
 (defun monte-carlo-theme-apply ()
   (interactive)
-  (defun lab2xyz (lab-color)
-    "Convert `lab-color` (vector of floats) to XYZ color. l ∈ [0,
-100], a,b ∈ [-128, 127]. Reference:
-http://www.brucelindbloom.com/index.html?Math.html"
-    (let* ((epsilon 0.008856)
-           (kappa 903.3)
-           (l (elt lab-color 0))
-           (a (elt lab-color 1))
-           (b (elt lab-color 2))
-           (fy (/ (+ l 16.0) 116.0))
-           (fx (+ (/ a 500.0) fy))
-           (fz (- fy (/ b 200.0)))
-           (fx3 (expt fx 3.0))
-           (fz3 (expt fz 3.0))
-           (xr (if (> fx3 epsilon) fx3 (/ (- (* 116.0 fx) 16.0) kappa)))
-           (yr (if (> l (* kappa epsilon)) (expt fy 3.0) (/ l kappa)))
-           (zr (if (> fz3 epsilon) fz3 (/ (- (* 116.0 fz) 16.0) kappa))))
-      (vector (* xr 0.95047) yr (* zr 1.08883))))
-
-  (defun hlc2lab (hlc-color)
-    "Convert CIEHLC color `hlc-color` to CIELAB. h ∈ [0, 2π), l ∈ [0,
-100], c ∈ [0, 128]. Reference:
-https://en.wikipedia.org/wiki/CIELAB_color_space#CIEHLC_cylindrical_model"
-    (let ((h (elt hlc-color 0))
-          (l (elt hlc-color 1))
-          (c (elt hlc-color 2)))
-      (vector l (* c (cos h)) (* c (sin h)))))
-
-  (defun xyz2srgb (xyz)
-    "Convert CIEXYZ color to sRGB. Result is from 0 to 1. Reference:
-https://darksair.org/wiki/color-science/main.html"
-    (defun not-gamma-map (x)
-      (if (> x 0.0031308)
-          (- (* 1.055 (expt x (/ 1 2.4))) 0.055)
-        (* 12.92 x)))
-    (let* ((x (elt xyz 0))
-           (y (elt xyz 1))
-           (z (elt xyz 2))
-           (r (+ (* 3.2406 x) (* -1.5372 y) (* -0.4986 z)))
-           (g (+ (* -0.9689 x) (* 1.8758 y) (* 0.0415 z)))
-           (b (+ (* 0.0557 x) (* -0.2040 y) (* 1.0570 z))))
-      (vector (not-gamma-map r) (not-gamma-map g) (not-gamma-map b))))
-
-  (defun hlc2srgb (hlc)
-    (xyz2srgb (lab2xyz (hlc2lab hlc))))
-
-  (defun srgb2hex (srgb)
-    (defun clamp (x min max)
-      (cond ((< x min) min)
-            ((> x max) max)
-            (t x)))
-    (let ((r (clamp (* (elt srgb 0) 255) 0 255))
-          (g (clamp (* (elt srgb 1) 255) 0 255))
-          (b (clamp (* (elt srgb 2) 255) 0 255)))
-      (format "#%02x%02x%02x" r g b)))
-
-  (defun hlc2srgb-hex (hlc)
-    (srgb2hex (hlc2srgb hlc)))
-
-  ;; Lightness ∈ [0, 1], saturation ∈ [0, 1]
-  (defun random-color (lightness saturation)
-    (hlc2srgb-hex (vector (/ (random 360) (* 2.0 3.14159)) lightness saturation)))
-
-  (defun random-float (min max)
-    (let ((min000 (floor (* min 1000.0)))
-          (max000 (floor (* max 1000.0))))
-      (* (+ (random (- max000 min000)) min000) 0.001)))
-
-  (cl-defun make-color-gen-options
-      (&key bg-fg-contrast bg-fg-saturation
-            color-contrast color-saturation)
-    (let ((result (make-hash-table :size 4)))
-      (puthash 'bg-fg-contrast bg-fg-contrast result)
-      (puthash 'bg-fg-saturation bg-fg-saturation result)
-      (puthash 'color-contrast color-contrast result)
-      (puthash 'color-saturation color-saturation result)
-      result))
-
-  (defun make-color (h l c)
-    (vector h l c))
-
-  (defun h (color) (elt color 0))
-  (defun l (color) (elt color 1))
-  (defun c (color) (elt color 2))
-
-  (defun make-color-set (bg fg color1 color2 color3 color4 color5)
-    (vector bg fg color1 color2 color3 color4 color5))
-
-  (defun bg (color-set)
-    (elt color-set 0))
-
-  (defun fg (color-set)
-    (elt color-set 1))
-
-  (defun color1 (color-set)
-    (elt color-set 2))
-  (defun color2 (color-set)
-    (elt color-set 3))
-  (defun color3 (color-set)
-    (elt color-set 4))
-  (defun color4 (color-set)
-    (elt color-set 5))
-  (defun color5 (color-set)
-    (elt color-set 6))
-
-  (defun color-lighter (color delta-l)
-    (make-color (h color) (+ (l color) delta-l) (c color)))
-
-  (defun color-darker (color delta-l)
-    (make-color (h color) (- (l color) delta-l) (c color)))
-
-  (defun ring-distance (ring-min ring-max x1 x2)
-    (if (>= x2 x1)
-        (min (- x2 x1) (+ (- ring-max x2) (- x1 ring-min)))
-      (min (- x1 x2) (+ (- ring-max x1) (- x2 ring-min)))))
-
-  (defun ring-wrap (ring-min ring-max x)
-    (let ((winding-number (ffloor (/ (- x ring-min) (- ring-max ring-min)))))
-      (- x (+ (* winding-number (- ring-max ring-min)) ring-min))))
-
-  (defun ring+ (ring-min ring-max x addition)
-    (let ((xp (+ x addition)))
-      (if (> xp ring-max)
-          (ring-wrap xp)
-        xp)))
-
-  (defun divide-ring-roughly (ring-min ring-max divide-count perturb)
-    (defun divide-ring-inner (ring-min ring-max perturb exact-size exact-cut
-                                       cut-left)
-      (if (= cut-left 0)
-          nil
-        (cons (ring-wrap ring-min ring-max
-                         (random-float (- exact-cut perturb)
-                                       (+ perturb exact-cut)))
-              (divide-ring-inner ring-min ring-max perturb exact-size
-                                 (+ exact-cut exact-size) (- cut-left 1)))))
-    (let ((first-cut (random-float ring-min ring-max))
-          (exact-size (/ (- ring-max ring-min) (float divide-count))))
-      (cons first-cut
-            (divide-ring-inner ring-min ring-max perturb exact-size
-                               (+ first-cut exact-size) (- divide-count 1)))))
-
-  (defun gen-color-set (options)
-    (defun gen-accent-colors (options)
-      (let* ((2pi (* 2.0 3.14159265))
-             (contrast (gethash 'color-contrast options))
-             (sat (gethash 'color-saturation options))
-             (hues (divide-ring-roughly 0 2pi 5 0.15)))
-        (mapcar (lambda (hue) (vector hue (+ 50.0 (* 50.0 contrast)) (* sat 128.0)))
-                hues)))
-
-    (let* ((2pi (* 2.0 3.14159265))
-           (contrast (gethash 'bg-fg-contrast options))
-           (sat (gethash 'bg-fg-saturation options))
-           (bg (make-color (random-float 0 2pi)
-                           (- 50.0 (* 50.0 contrast))
-                           (* sat 128.0)))
-           (fg (make-color (random-float 0 2pi)
-                           (+ 50.0 (* 50.0 contrast))
-                           (* sat 128.0)))
-           (colors (gen-accent-colors options)))
-      (make-color-set bg fg (nth 0 colors) (nth 1 colors) (nth 2 colors) (nth 3 colors)
-                      (nth 4 colors))))
-
   (let*
-      ((color-set (gen-color-set
-                   (make-color-gen-options :bg-fg-contrast 0.7 :bg-fg-saturation 0.04
-                                           :color-contrast 0.5 :color-saturation 0.3)))
-       (color-fg (hlc2srgb-hex (fg color-set)))
-       (color-bg (hlc2srgb-hex (bg color-set)))
-       (color-1 (hlc2srgb-hex (color1 color-set)))
-       (color-2 (hlc2srgb-hex (color2 color-set)))
-       (color-3 (hlc2srgb-hex (color3 color-set)))
-       (color-4 (hlc2srgb-hex (color4 color-set)))
-       (color-5 (hlc2srgb-hex (color5 color-set)))
-       (color-void (hlc2srgb-hex (color-darker (bg color-set) 15)))
-       (color-dark (hlc2srgb-hex (color-lighter (bg color-set) 15)))
-       (color-middle (hlc2srgb-hex (color-lighter (bg color-set) 30)))
-       (color-light (hlc2srgb-hex (color-darker (fg color-set) 15)))
-       (color-bright (hlc2srgb-hex (color-lighter (fg color-set) 15)))
+      ((color-set (mcth--gen-color-set
+                   (mcth--make-color-gen-options
+                    :bg-fg-contrast monte-carlo-theme-contrast
+                    :bg-fg-saturation monte-carlo-theme-saturation
+                    :color-contrast monte-carlo-theme-color-contrast
+                    :color-saturation monte-carlo-theme-color-saturation
+                    :style (if (eq monte-carlo-theme-style 'random)
+                               (mcth--random-from-list '(light dark))
+                             monte-carlo-theme-style)
+                    :scheme (if (eq monte-carlo-theme-scheme 'random)
+                                (mcth--random-from-list '(penta penta-half))
+                              monte-carlo-theme-scheme))))
+       (color-fg (mcth--hlc2srgb-hex (mcth--fg color-set)))
+       (color-bg (mcth--hlc2srgb-hex (mcth--bg color-set)))
+       (color-1 (mcth--hlc2srgb-hex (mcth--color1 color-set)))
+       (color-2 (mcth--hlc2srgb-hex (mcth--color2 color-set)))
+       (color-3 (mcth--hlc2srgb-hex (mcth--color3 color-set)))
+       (color-4 (mcth--hlc2srgb-hex (mcth--color4 color-set)))
+       (color-5 (mcth--hlc2srgb-hex (mcth--color5 color-set)))
+       (color-void (mcth--hlc2srgb-hex (mcth--void color-set)))
+       (color-dark (mcth--hlc2srgb-hex (mcth--dark color-set)))
+       (color-middle (mcth--hlc2srgb-hex (mcth--middle color-set)))
+       (color-light (mcth--hlc2srgb-hex (mcth--light color-set)))
+       (color-bright (mcth--hlc2srgb-hex (mcth--bright color-set)))
        )
     (setq monte-carlo-theme-color-set color-set)
     (custom-theme-set-faces
@@ -268,6 +374,7 @@ https://darksair.org/wiki/color-science/main.html"
      `(font-lock-type-face ((t (:foreground ,color-5))))
      `(font-lock-variable-name-face ((t (:foreground ,color-1))))
      `(font-lock-warning-face ((t (:foreground ,color-1))))
+     `(font-lock-doc-face ((t (:foreground ,color-middle))))
 
      `(isearch ((t (:background ,color-light
                                 :foreground ,color-bg))))
