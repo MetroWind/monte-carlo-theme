@@ -12,7 +12,7 @@
 ;; URL: https://github.com/MetroWind/monte-carlo-theme
 ;; Keywords: lisp
 ;; Version: 1.0
-;; Package-Requires: ((emacs "24"))
+;; Package-Requires: ((emacs "24.3"))
 
 ;;; Commentary:
 ;;
@@ -28,7 +28,7 @@
 (deftheme monte-carlo "A theme to test your luck")
 
 (defun mcth--lab2xyz (lab-color)
-  "Convert `lab-color` (vector of floats) to XYZ color. l ∈ [0,
+  "Convert `lab-color' (vector of floats) to XYZ color. l ∈ [0,
 100], a,b ∈ [-128, 127]. Reference:
 http://www.brucelindbloom.com/index.html?Math.html"
   (let* ((epsilon 0.008856)
@@ -47,7 +47,7 @@ http://www.brucelindbloom.com/index.html?Math.html"
     (vector (* xr 0.95047) yr (* zr 1.08883))))
 
 (defun mcth--hlc2lab (hlc-color)
-  "Convert CIEHLC color `hlc-color` to CIELAB. h ∈ [0, 2π), l ∈ [0,
+  "Convert CIEHLC color `hlc-color' to CIELAB. h ∈ [0, 2π), l ∈ [0,
 100], c ∈ [0, 128]. Reference:
 https://en.wikipedia.org/wiki/CIELAB_color_space#CIEHLC_cylindrical_model"
   (let ((h (elt hlc-color 0))
@@ -301,7 +301,8 @@ https://darksair.org/wiki/color-science/main.html"
   (read-only-mode 1)
   (switch-to-buffer "*Color Chart*"))
 
-(defgroup monte-carlo-theme nil "Setting for the Monte Carlo theme")
+(defgroup monte-carlo-theme nil "Setting for the Monte Carlo theme"
+  :group 'face)
 (defcustom monte-carlo-theme-style 'random
   "Will the theme have a 'light or 'dark background? If 'random, randomly choose between 'light and 'dark."
   :type '(symbol)
@@ -350,8 +351,7 @@ https://darksair.org/wiki/color-science/main.html"
        (color-dark (mcth--hlc2srgb-hex (mcth--dark color-set)))
        (color-middle (mcth--hlc2srgb-hex (mcth--middle color-set)))
        (color-light (mcth--hlc2srgb-hex (mcth--light color-set)))
-       (color-bright (mcth--hlc2srgb-hex (mcth--bright color-set)))
-       )
+       (color-bright (mcth--hlc2srgb-hex (mcth--bright color-set))))
     (setq monte-carlo-theme-color-set color-set)
     (custom-theme-set-faces
      'monte-carlo
@@ -598,8 +598,7 @@ https://darksair.org/wiki/color-science/main.html"
      ;; Telega
      `(telega-msg-heading ((t (:background nil :foreground ,color-2 :inherit nil))))
      `(telega-msg-inline-reply ((t (:foreground ,color-light :inherit nil))))
-     `(telega-entity-type-texturl ((t (:inherit nil :foreground ,color-1))))
-     )))
+     `(telega-entity-type-texturl ((t (:inherit nil :foreground ,color-1)))))))
 
 (monte-carlo-theme-apply)
 (provide-theme 'monte-carlo)
