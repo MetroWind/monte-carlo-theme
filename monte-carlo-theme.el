@@ -1,4 +1,4 @@
-;;; monte-carlo-theme.el --- A theme with random colors
+;;; monte-carlo-theme.el --- A theme to test your luck
 
 ;; Copyright (C) 2023 MetroWind.
 
@@ -20,6 +20,10 @@
 ;; of colors each time.
 
 ;;; Code:
+
+(when load-file-name
+  (add-to-list 'custom-theme-load-path
+               (file-name-as-directory (file-name-directory load-file-name))))
 
 (deftheme monte-carlo "A theme with random colors")
 
