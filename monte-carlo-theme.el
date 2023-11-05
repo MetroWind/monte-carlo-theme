@@ -25,7 +25,7 @@
   (add-to-list 'custom-theme-load-path
                (file-name-as-directory (file-name-directory load-file-name))))
 
-(deftheme monte-carlo "A theme with random colors")
+(deftheme monte-carlo "A theme to test your luck")
 
 (defun mcth--lab2xyz (lab-color)
   "Convert `lab-color` (vector of floats) to XYZ color. l ∈ [0,
@@ -603,6 +603,8 @@ https://darksair.org/wiki/color-science/main.html"
 
 (monte-carlo-theme-apply)
 (provide-theme 'monte-carlo)
+
+(provide 'monte-carlo-theme)
 
 ;; Local Variables:
 ;; no-byte-compile: t
