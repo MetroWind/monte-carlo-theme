@@ -31,7 +31,7 @@ Therefore the color chart and color sheet would not work._
 [source,lisp]
 ----
 (straight-use-package
-  '(el-patch :type git :host github :repo "MetroWind/monte-carlo-theme"))
+  '(monte-carlo-theme :type git :host github :repo "MetroWind/monte-carlo-theme"))
 ----
 
 === Manually
