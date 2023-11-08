@@ -24,6 +24,20 @@ _*If Emacs decides to use Imagemagick for SVG support, it would not be
 able to view an SVG buffer that is not associated with a file.
 Therefore the color chart and color sheet would not work._
 
+== Installation
+
+=== Using straight.el
+
+[source,lisp]
+----
+(straight-use-package
+  '(el-patch :type git :host github :repo "MetroWind/monte-carlo-theme"))
+----
+
+=== Manually
+
+Copy `monte-carlo-theme.el` to somewhere in `custom-theme-directory`.
+
 == Configuration
 
 Check out the customization group. I do plan to add more customizable
