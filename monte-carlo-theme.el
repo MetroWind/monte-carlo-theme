@@ -142,6 +142,13 @@ https://darksair.org/wiki/color-science/main.html"
 (defun mcth--color5 (color-set)
   (elt color-set 11))
 
+(defun mcth--accent-colors (color-set)
+  (list (mcth--color1 color-set)
+        (mcth--color2 color-set)
+        (mcth--color3 color-set)
+        (mcth--color4 color-set)
+        (mcth--color5 color-set)))
+
 (defun mcth--color-lighter (color delta-l)
   (mcth--make-color (mcth--h color) (+ (mcth--l color) delta-l) (mcth--c color)))
 
@@ -206,59 +213,74 @@ https://darksair.org/wiki/color-science/main.html"
          (fg (mcth--make-color (mcth--random-float 0 2pi)
                                fg-lightness
                                (* sat 128.0)))
-         (void (cond ((eq style 'dark) (mcth--color-darker bg 15))
+         (void (cond ((eq style 'dark) (mcth--color-darker bg 5))
                      ((eq style 'light) (mcth--color-lighter bg 15))
                      (t bg)))
          (dark (cond ((eq style 'dark) (mcth--color-lighter bg 15))
-                     ((eq style 'light) (mcth--color-darker bg 15))
+                     ((eq style 'light) (mcth--color-darker bg 10))
                      (t bg)))
          (middle (cond ((eq style 'dark) (mcth--color-lighter bg 40))
-                       ((eq style 'light) (mcth--color-darker bg 40))
+                       ((eq style 'light) (mcth--color-darker bg 35))
                        (t bg)))
-         (light (cond ((eq style 'dark) (mcth--color-darker fg 15))
+         (light (cond ((eq style 'dark) (mcth--color-darker fg 10))
                       ((eq style 'light) (mcth--color-lighter fg 15))
                       (t fg)))
          (bright (cond ((eq style 'dark) (mcth--color-lighter fg 15))
-                       ((eq style 'light) (mcth--color-darker fg 15))
+                       ((eq style 'light) (mcth--color-darker fg 5))
                        (t fg)))
          (colors (gen-accent-colors options)))
     (mcth--make-color-set bg fg void dark middle light bright (nth 0 colors) (nth 1 colors) (nth 2 colors) (nth 3 colors)
                           (nth 4 colors))))
 
+(defun mcth--find-closest (color-set hue)
+  "Find the accent color in COLOR-SET that is the closest to HUE in hue."
+  (let ((result (mcth--color1 color-set)))
+    (dolist (c (mcth--accent-colors color-set))
+      (if (< (abs (- (mcth--h c) hue)) (abs (- (mcth--h result) hue)))
+          (setq result c)))
+    result))
+
 (defun monte-carlo-theme-create-color-sheet ()
   (interactive)
+  (defun lines-with-overlay (lines-spec line-length overlay-length)
+    (defun lines-with-overlay-inner (line-specs starting-pos)
+      (if (null line-specs)
+          nil
+        (let ((this-line (car line-specs)))
+          (if (null (cdr this-line))
+              (progn
+                (insert (car this-line))
+                (insert "\n")
+                (lines-with-overlay-inner (cdr line-specs) (+ starting-pos (length (car this-line)) 1)))
+            (insert (car this-line))
+            (insert (make-string (- line-length (length (car this-line))) (get-byte 0 " ")))
+            (overlay-put (make-overlay (+ starting-pos (- line-length overlay-length))
+                                       (+ starting-pos line-length))
+                         'face (cons 'background-color (cdr this-line)))
+            (insert "\n")
+            (lines-with-overlay-inner (cdr line-specs) (+ starting-pos line-length 1))))))
+    (lines-with-overlay-inner lines-spec 0))
+
   (defun create-color-sheet (color-set)
     (set-buffer (get-buffer-create "*Color Sheet*"))
     (read-only-mode 0)
     (erase-buffer)
-    (let ((color-hex (mcth--hlc2srgb-hex (mcth--bg color-set))))
-      (insert "bg                  " color-hex "\n")
-      (overlay-put (make-overlay 12 20) 'face
-                   (cons 'background-color color-hex)))
-    (let ((color-hex (mcth--hlc2srgb-hex (mcth--fg color-set))))
-      (insert "fg                  " color-hex "\n")
-      (overlay-put (make-overlay 40 48) 'face
-                   (cons 'background-color color-hex)))
-    (let ((color-hex (mcth--hlc2srgb-hex (mcth--color1 color-set))))
-      (insert "color1              " color-hex "\n")
-      (overlay-put (make-overlay 68 76) 'face
-                   (cons 'background-color color-hex)))
-    (let ((color-hex (mcth--hlc2srgb-hex (mcth--color2 color-set))))
-      (insert "color2              " color-hex "\n")
-      (overlay-put (make-overlay 96 104) 'face
-                   (cons 'background-color color-hex)))
-    (let ((color-hex (mcth--hlc2srgb-hex (mcth--color3 color-set))))
-      (insert "color3              " color-hex "\n")
-      (overlay-put (make-overlay 124 132) 'face
-                   (cons 'background-color color-hex)))
-    (let ((color-hex (mcth--hlc2srgb-hex (mcth--color4 color-set))))
-      (insert "color4              " color-hex "\n")
-      (overlay-put (make-overlay 152 160) 'face
-                   (cons 'background-color color-hex)))
-    (let ((color-hex (mcth--hlc2srgb-hex (mcth--color5 color-set))))
-      (insert "color5              " color-hex "\n")
-      (overlay-put (make-overlay 180 188) 'face
-                   (cons 'background-color color-hex)))
+    (lines-with-overlay
+     (list (cons "Base colors:" nil)
+           (cons "bg" (mcth--hlc2srgb-hex (mcth--bg color-set)))
+           (cons "fg" (mcth--hlc2srgb-hex (mcth--fg color-set)))
+           (cons "color1" (mcth--hlc2srgb-hex (mcth--color1 color-set)))
+           (cons "color2" (mcth--hlc2srgb-hex (mcth--color2 color-set)))
+           (cons "color3" (mcth--hlc2srgb-hex (mcth--color3 color-set)))
+           (cons "color4" (mcth--hlc2srgb-hex (mcth--color4 color-set)))
+           (cons "color5" (mcth--hlc2srgb-hex (mcth--color5 color-set)))
+           (cons "Derived colors:" nil)
+           (cons "void" (mcth--hlc2srgb-hex (mcth--void color-set)))
+           (cons "dark" (mcth--hlc2srgb-hex (mcth--dark color-set)))
+           (cons "middle" (mcth--hlc2srgb-hex (mcth--middle color-set)))
+           (cons "light" (mcth--hlc2srgb-hex (mcth--light color-set)))
+           (cons "bright" (mcth--hlc2srgb-hex (mcth--bright color-set))))
+     20 8)
     (read-only-mode 1))
   (create-color-sheet monte-carlo-theme-color-set)
   (switch-to-buffer "*Color Sheet*"))
@@ -271,7 +293,7 @@ https://darksair.org/wiki/color-science/main.html"
       (dotimes (x resolution)
         (dotimes (y resolution)
           (let ((a (* (/ 256.0 (float resolution)) (- x (/ resolution 2))))
-                (b (* (/ 256.0 (float resolution)) (- y (/ resolution 2)))))
+                (b (* (/ 256.0 (float resolution)) (- (- resolution y) (/ resolution 2)))))
             (insert (format "<rect x=\"%f\" y=\"%f\" width=\"%f\" height=\"%f\" stroke=\"none\" fill=\"%s\" />\n"
                             (* x cell-size) (* y cell-size) cell-size cell-size
                             (mcth--srgb2hex (mcth--xyz2srgb (mcth--lab2xyz (vector lightness a b)))))))))))
@@ -280,7 +302,7 @@ https://darksair.org/wiki/color-science/main.html"
     (let* ((resolution 32)
            (lab (mcth--hlc2lab color-hlc))
            (x (* (+ (/ (elt lab 1) 256.0) 0.5) (float size)))
-           (y (* (+ (/ (elt lab 2) 256.0) 0.5) (float size))))
+           (y (- size (* (+ (/ (elt lab 2) 256.0) 0.5) (float size)))))
       (insert (format "<circle cx=\"%f\" cy=\"%f\" r=\"%f\" stroke=\"white\" fill=\"%s\" stroke-width=\"2\"/>\n"
                       x y (/ (float size) 30) (mcth--hlc2srgb-hex color-hlc)))))
 
@@ -310,7 +332,7 @@ https://darksair.org/wiki/color-science/main.html"
 (defcustom monte-carlo-theme-contrast 0.65
   "The contrast between backgroun and foreground (from 0 to 1)."
   :type '(float))
-(defcustom monte-carlo-theme-saturation 0.04
+(defcustom monte-carlo-theme-saturation 0.025
   "The saturation of background and foreground (from 0 to 1). Usually this is a small number (< 0.1)."
   :type '(float))
 (defcustom monte-carlo-theme-color-contrast 0.5
@@ -351,7 +373,10 @@ https://darksair.org/wiki/color-science/main.html"
        (color-dark (mcth--hlc2srgb-hex (mcth--dark color-set)))
        (color-middle (mcth--hlc2srgb-hex (mcth--middle color-set)))
        (color-light (mcth--hlc2srgb-hex (mcth--light color-set)))
-       (color-bright (mcth--hlc2srgb-hex (mcth--bright color-set))))
+       (color-bright (mcth--hlc2srgb-hex (mcth--bright color-set)))
+       (color-red (mcth--hlc2srgb-hex (mcth--find-closest color-set (* 0.25 3.14159265))))
+       (color-green (mcth--hlc2srgb-hex (mcth--find-closest color-set (* (/ 5.0 6.0) 3.14159265))))
+       )
     (setq monte-carlo-theme-color-set color-set)
     (custom-theme-set-faces
      'monte-carlo
@@ -405,8 +430,8 @@ https://darksair.org/wiki/color-science/main.html"
      `(dired-perm-write ((t (:foreground ,color-4))))
 
      ;; Diff
-     `(diff-added ((t (:foreground ,color-1))))
-     `(diff-removed ((t (:foreground ,color-4))))
+     `(diff-added ((t (:foreground ,color-green))))
+     `(diff-removed ((t (:foreground ,color-red))))
      ;; `(diff-context ((t (:background nil))))
      `(diff-file-header ((t (:bold t :background ,color-dark :weight bold))))
      `(diff-header ((t (:background ,color-void :foreground ,color-fg))))
